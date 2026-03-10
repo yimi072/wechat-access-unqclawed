@@ -2,7 +2,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
 import { WechatAccessWebSocketClient, handlePrompt, handleCancel } from "./websocket/index.js";
 // import { handleSimpleWecomWebhook } from "./http/webhook.js";
-import { setWecomRuntime } from "./common/runtime.js";
+import { setWecomRuntime, getWecomRuntime } from "./common/runtime.js";
 import { performLogin, loadState, clearState, saveState, getDeviceGuid, getEnvironment, QClawAPI, buildAuthUrl, fetchQrUuid, fetchQrImageDataUrl, pollQrStatus } from "./auth/index.js";
 import type { QClawEnvironment, PersistedAuthState } from "./auth/index.js";
 import { nested } from "./auth/utils.js";
@@ -185,33 +185,41 @@ const tencentAccessPlugin = {
         const loginKey = userInfo.loginKey as string | undefined;
         if (loginKey) api.loginKey = loginKey;
 
-        // 保存登录态
-        const persistedState: PersistedAuthState = {
-          jwtToken,
-          channelToken,
-          apiKey: "",
-          guid,
-          userInfo,
-          savedAt: Date.now(),
-        };
-        saveState(persistedState, authStatePath);
-
         // 创建 API Key（非致命）
         api.jwtToken = jwtToken;
         api.userId = String(userInfo.user_id ?? "");
+        let apiKey = "";
         try {
           const keyResult = await api.createApiKey();
           if (keyResult.success) {
-            const apiKey =
+            apiKey =
               (nested(keyResult.data, "key") as string) ??
               (nested(keyResult.data, "resp", "data", "key") as string) ??
               "";
-            if (apiKey) {
-              persistedState.apiKey = apiKey;
-              saveState(persistedState, authStatePath);
-            }
           }
         } catch { /* non-fatal */ }
+
+        // 写入 openclaw.json（统一存储）
+        try {
+          const fullCfg = runtime.config?.loadConfig?.() ?? cfg;
+          const channels = { ...(fullCfg.channels ?? {}) } as Record<string, any>;
+          channels["wechat-access-unqclawed"] = {
+            ...(channels["wechat-access-unqclawed"] ?? {}),
+            token: channelToken,
+          };
+          const nextCfg: Record<string, unknown> = { ...fullCfg, channels };
+          if (apiKey) {
+            const models = { ...(fullCfg.models ?? {}) } as Record<string, any>;
+            const providers = { ...(models.providers ?? {}) } as Record<string, any>;
+            providers.qclaw = { ...(providers.qclaw ?? {}), apiKey };
+            models.providers = providers;
+            nextCfg.models = models;
+          }
+          await runtime.config.writeConfigFile(nextCfg);
+        } catch { /* non-fatal: fallback to state file */ }
+
+        // 备份到独立文件（兜底）
+        saveState({ jwtToken, channelToken, apiKey, guid, userInfo, savedAt: Date.now() }, authStatePath);
 
         const nickname = (userInfo.nickname as string) ?? "用户";
         runtime.log(`[wechat-access] 登录成功! 欢迎 ${nickname}，token 已保存。请重启 Gateway 生效。`);
@@ -276,7 +284,7 @@ const tencentAccessPlugin = {
           token = savedState.channelToken;
           log?.info(`[wechat-access] 使用已保存的 token: ${token.substring(0, 6)}...`);
         } else {
-          log?.warn(`[wechat-access] 未找到 token，请在终端运行 "openclaw wechat-login" 完成扫码登录，然后重启 Gateway`);
+          log?.warn(`[wechat-access] 未找到 token，请运行 "openclaw channels login --channel wechat-access-unqclawed" 完成扫码登录，然后重启 Gateway`);
           return;
         }
       }
@@ -434,33 +442,42 @@ const tencentAccessPlugin = {
           const loginKey = userInfo.loginKey as string | undefined;
           if (loginKey) api.loginKey = loginKey;
 
-          // 保存登录态
-          const persistedState: PersistedAuthState = {
-            jwtToken,
-            channelToken,
-            apiKey: "",
-            guid,
-            userInfo,
-            savedAt: Date.now(),
-          };
-          saveState(persistedState, authStatePath);
-
           // 创建 API Key（非致命）
           api.jwtToken = jwtToken;
           api.userId = String(userInfo.user_id ?? "");
+          let apiKey = "";
           try {
             const keyResult = await api.createApiKey();
             if (keyResult.success) {
-              const apiKey =
+              apiKey =
                 (nested(keyResult.data, "key") as string) ??
                 (nested(keyResult.data, "resp", "data", "key") as string) ??
                 "";
-              if (apiKey) {
-                persistedState.apiKey = apiKey;
-                saveState(persistedState, authStatePath);
-              }
             }
           } catch { /* non-fatal */ }
+
+          // 写入 openclaw.json（统一存储）
+          try {
+            const wRuntime = getWecomRuntime();
+            const fullCfg = wRuntime.config.loadConfig();
+            const channels = { ...(fullCfg.channels ?? {}) } as Record<string, any>;
+            channels["wechat-access-unqclawed"] = {
+              ...(channels["wechat-access-unqclawed"] ?? {}),
+              token: channelToken,
+            };
+            const nextCfg: Record<string, unknown> = { ...fullCfg, channels };
+            if (apiKey) {
+              const models = { ...(fullCfg.models ?? {}) } as Record<string, any>;
+              const providers = { ...(models.providers ?? {}) } as Record<string, any>;
+              providers.qclaw = { ...(providers.qclaw ?? {}), apiKey };
+              models.providers = providers;
+              nextCfg.models = models;
+            }
+            await wRuntime.config.writeConfigFile(nextCfg);
+          } catch { /* non-fatal */ }
+
+          // 备份到独立文件（兜底）
+          saveState({ jwtToken, channelToken, apiKey, guid, userInfo, savedAt: Date.now() }, authStatePath);
 
           pendingQrLogin = null;
           const nickname = (userInfo.nickname as string) ?? "用户";
