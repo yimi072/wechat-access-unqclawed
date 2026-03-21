@@ -6,8 +6,6 @@
 
 ---
 
-> **v1.1.0 — 现已支持 WorkBuddy 模式！** 无需内测码，通过 WorkBuddy 账号即可登录使用。
-
 OpenClaw 微信通路插件 — 支持 QClaw 和 WorkBuddy 双模式。
 
 ## 安装
@@ -26,8 +24,8 @@ openclaw wechat login
 
 交互式选择登录模式：
 
-- **QClaw** — 微信扫码登录 **目前需要内测码。**
-- **WorkBuddy** — CodeBuddy OAuth 登录
+- **QClaw**
+- **WorkBuddy**
 
 ### 2. 启动 Gateway
 
@@ -47,19 +45,19 @@ openclaw wechat bind
 
 ### QClaw 模式
 
-通过微信平台 OAuth 获取 token，连接 WebSocket 网关。**目前需要内测码。**
+通过微信平台 OAuth 获取 token，连接 WebSocket 网关。
 
-### WorkBuddy 模式 （推荐）
+### WorkBuddy 模式
 
-通过 CodeBuddy OAuth 获取 token，连接 WebSocket 网关。不需要内测码。
+通过 CodeBuddy OAuth 获取 token，连接 WebSocket 网关。
 
 ## CLI 命令
 
-| 命令 | 说明 |
-|------|------|
-| `openclaw wechat login` | 交互式登录（选择 QClaw 或 WorkBuddy） |
-| `openclaw wechat logout` | 清除登录态 |
-| `openclaw wechat bind` | 获取设备绑定链接 |
+| 命令                     | 说明                                  |
+| ------------------------ | ------------------------------------- |
+| `openclaw wechat login`  | 交互式登录（选择 QClaw 或 WorkBuddy） |
+| `openclaw wechat logout` | 清除登录态                            |
+| `openclaw wechat bind`   | 获取设备绑定链接                      |
 
 ## 配置
 
@@ -93,12 +91,12 @@ openclaw wechat bind
 }
 ```
 
-| 字段 | 说明 |
-|------|------|
-| `loginMode` | 当前登录模式：`qclaw` 或 `workbuddy` |
-| `environment` | 环境：`production`（默认）或 `test` |
-| `qclaw` | QClaw 模式凭证（登录后自动写入） |
-| `workbuddy` | WorkBuddy 模式凭证（登录后自动写入） |
+| 字段          | 说明                                 |
+| ------------- | ------------------------------------ |
+| `loginMode`   | 当前登录模式：`qclaw` 或 `workbuddy` |
+| `environment` | 环境：`production`（默认）或 `test`  |
+| `qclaw`       | QClaw 模式凭证（登录后自动写入）     |
+| `workbuddy`   | WorkBuddy 模式凭证（登录后自动写入） |
 
 ## 项目结构
 
